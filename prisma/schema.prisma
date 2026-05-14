@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Match {
+  id           String   @id @default(cuid())
+  player1      String
+  player2      String
+  tournament   String?
+  startTime    DateTime
+  status       String   @default("upcoming")
+  odds1        Float?
+  odds2        Float?
+  source       String?
+  score1       Int      @default(0)
+  score2       Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Bet {
+  id             String   @id @default(cuid())
+  matchId        String
+  predictedWinner String
+  odds           Float?
+  stake          Float    @default(0)
+  status         String   @default("pending")
+  result         String?
+  profit         Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  name      String
+  country   String?
+  rank      Int      @default(0)
+  wins      Int      @default(0)
+  losses    Int      @default(0)
+  rating    Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Predictor {
+  id               String   @id @default(cuid())
+  name             String
+  platform         String?
+  tier             String   @default("C")
+  accuracy         Float    @default(0)
+  totalPredictions Int      @default(0)
+  verified         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model CollectionLog {
+  id              String   @id @default(cuid())
+  source          String
+  matchesCollected Int     @default(0)
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Bankroll {
+  id        String   @id @default(cuid())
+  total     Float    @default(1000)
+  currency  String   @default("USD")
+  updatedAt DateTime @updatedAt
+}

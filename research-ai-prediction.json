@@ -1,0 +1,65 @@
+[
+  {
+    "url": "https://ttedge.ai",
+    "name": "TT Edge | AI-Powered Table Tennis Analytics & Predictions",
+    "snippet": "Edge Finder AI-powered algorithm identifies high-value betting opportunities by analyzing player form, H2H records, and market odds.",
+    "host_name": "ttedge.ai",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "http://oddsbeacon.com",
+    "name": "OddsBeacon - AI-Powered Table Tennis Predictions & Analytics",
+    "snippet": "Get live table tennis predictions, player analytics, and betting insights powered by AI. Track matches, analyze player performance, and make informed betting decisions.",
+    "host_name": "oddsbeacon.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.sportsgambler.com/betting-tips/table-tennis",
+    "name": "Table Tennis Predictions, Betting Tips & Odds",
+    "snippet": "Free table tennis predictions from our expert tipsters. The latest betting tips, match previews and best odds.",
+    "host_name": "www.sportsgambler.com",
+    "rank": 2,
+    "date": "May 11, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://live2sport.com/Table-Tennis.php/Top_Predictions/1",
+    "name": "Table Tennis Algorithm Predictions Today - live2sport.com",
+    "snippet": "Our predictions are developed using a combination of statistical analysis, historical data, and bookmakers' odds, utilizing advanced algorithms to forecast Table Tennis events.",
+    "host_name": "live2sport.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://winnerodds.com",
+    "name": "WinnerOdds. The Machine Learning Software for Betting.",
+    "snippet": "WinnerOdds is an AI-powered betting tips service that automatically identifies value bets in the global betting market. By following our recommended odds, you’ll consistently invest in bets that are highly profitable over the long run.",
+    "host_name": "winnerodds.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://pingpongbets.com/tips",
+    "name": "Free Table Tennis Betting Tips & Predictions | Ping Pong Bets",
+    "snippet": "Get expert table tennis betting tips and ping pong predictions for today. Track results, view past picks, and find value bets on all major leagues worldwide.",
+    "host_name": "pingpongbets.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://arxiv.org/abs/2303.16776",
+    "name": "Supervised Learning for Table Tennis Match Prediction",
+    "snippet": "This paper proposes the use of machine learning to predict the outcome of table tennis single matches. We use player and match statistics as features and evaluate their relative importance in an ablation study.",
+    "host_name": "arxiv.org",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  }
+]

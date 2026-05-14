@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:/home/z/my-project/db/custom.db"
+}
+
+model Match {
+  id          String   @id @default(cuid())
+  externalId  String   @unique
+  source      String   // "betboom" | "fonbet"
+  sport       String   @default("table_tennis")
+  league      String   @default("")
+  player1     String
+  player2     String
+  startTime   DateTime
+  status      String   @default("upcoming") // "upcoming" | "live" | "finished"
+  score1      Int      @default(0)
+  score2      Int      @default(0)
+  winner      String?  // "player1" | "player2" | null
+  odds        BookmakerOdds[]
+  predictions Prediction[]
+  bets        Bet[]
+  createdAt   DateTime @default(now())
+  player1Rel  Player?  @relation("Player1Matches", fields: [player1], references: [name])
+  player2Rel  Player?  @relation("Player2Matches", fields: [player2], references: [name])
+  updatedAt   DateTime @updatedAt
+  rawJson     String?  @default("{}") // store full source data
+
+  @@index([source])
+  @@index([status])
+  @@index([startTime])
+}
+
+model BookmakerOdds {
+  id         String   @id @default(cuid())
+  matchId    String
+  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  source     String   // "betboom" | "fonbet"
+  odds1      Float    // odds for player1
+  odds2      Float    // odds for player2
+  totalOver  Float?   // total over
+  totalUnder Float?   // total under
+  handicap1  Float?
+  handicap2  Float?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([matchId, source])
+  @@index([source])
+}
+
+model Prediction {
+  id              String   @id @default(cuid())
+  matchId         String
+  match           Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  predictedWinner String   // "player1" | "player2"
+  confidence      Float    @default(0.5) // 0-1
+  aiModel         String   @default("gpt-4")
+  analysis        String   @default("")
+  isCorrect       Boolean?
+  createdAt       DateTime @default(now())
+
+  @@index([matchId])
+  @@index([isCorrect])
+}
+
+model Bet {
+  id            String   @id @default(cuid())
+  matchId       String
+  match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  predictedWinner String  // "player1" | "player2"
+  odds          Float
+  stake         Float    @default(0)
+  potentialWin  Float    @default(0)
+  result        String?  // "win" | "loss" | "pending" | "void"
+  payout        Float    @default(0)
+  isWin         Boolean?
+  createdAt     DateTime @default(now())
+  settledAt     DateTime?
+
+  @@index([result])
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  country   String?
+  rank      Int?
+  wins      Int      @default(0)
+  losses    Int      @default(0)
+  winRate   Float    @default(0)
+  avgOdds   Float    @default(0)
+  matches   Match[]  @relation("Player1Matches")
+  matches2  Match[]  @relation("Player2Matches")
+  history   PlayerHistory[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model PlayerHistory {
+  id          String   @id @default(cuid())
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  matchId     String?
+  opponent    String
+  result      String   // "win" | "loss"
+  score       String?
+  date        DateTime
+  tournament  String?
+  odds        Float?
+  createdAt   DateTime @default(now())
+
+  @@index([playerId])
+  @@index([date])
+}
+
+model Predictor {
+  id            String   @id @default(cuid())
+  name          String
+  channel       String   @default("")
+  platform      String   @default("telegram") // "telegram" | "youtube" | "twitter"
+  totalTips     Int      @default(0)
+  correctTips   Int      @default(0)
+  winRate       Float    @default(0)
+  avgConfidence Float    @default(0)
+  lastActive    DateTime?
+  verified      Boolean  @default(false)
+  qualityScore  Float    @default(0) // 0-100
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([name, platform])
+}
+
+model CollectionLog {
+  id        String   @id @default(cuid())
+  source    String
+  status    String   @default("success") // "success" | "error"
+  matchesFound   Int @default(0)
+  matchesNew     Int @default(0)
+  matchesUpdated Int @default(0)
+  error     String?
+  duration  Int      @default(0) // ms
+  createdAt DateTime @default(now())
+
+  @@index([source])
+  @@index([createdAt])
+}

@@ -1,0 +1,65 @@
+[
+  {
+    "url": "https://en.surebet.com/about/xml/fonbet",
+    "name": "Odds XML feed for bookmaker Fonbet (API, Excel) / SureBet",
+    "snippet": "We provide odds from the bookmaker Fonbet (www.fon.bet) in XML format (XML feed, API, Excel). You can import this data into your software for analytics, decision making, automation, and more.",
+    "host_name": "en.surebet.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://betsapi.com/c/table-tennis",
+    "name": "Table Tennis API - Live In Play Betting & Odds, Fixtures API",
+    "snippet": "Get and publish the latest scores, game summaries and other stats on your website or mobile app for Table Tennis all over the world using BetsAPI. We provide excellent sources of APIs for Table Tennis live betting odds feeds.",
+    "host_name": "betsapi.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://the-odds-api.com/sports/tennis-odds.html",
+    "name": "Tennis Odds API | The Odds API",
+    "snippet": "The Odds API covers tennis odds for live and upcoming matches in a simple JSON API. The following competitions are currently covered: Grand Slams, ATP 1000, ATP 500, WTA 1000 and WTA 500.",
+    "host_name": "the-odds-api.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://odds-api.io/sportsbooks",
+    "name": "All Bookmaker APIs - 370+ Sportsbook Data Providers | Odds API",
+    "snippet": "Complete directory of 370+ bookmaker APIs. Access real-time odds from Bet365, DraftKings, FanDuel, Betfair and top sportsbooks worldwide.",
+    "host_name": "odds-api.io",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/algobetting/comments/1bky53f/odds_scraping_and_storage_questions",
+    "name": "Odds scraping and storage questions : r/algobetting - Reddit",
+    "snippet": "I use mostly selenium to access/log in to specific odds books and browse to specific sub pages and tables that have the data I need. From there my scraper parses out the tables and links teams to some pre-defined dictionary i've created after familiarizing myself with the data.",
+    "host_name": "www.reddit.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.spoyer.com/docs.php",
+    "name": "Sports Scores and Betting API Documentation - spoyer",
+    "snippet": "Comprehensive Sports Scores and Betting API documentation. Access live scores, match results, statistics, pre-match and in-play odds, and sports data for football, basketball, tennis, cricket and more.",
+    "host_name": "www.spoyer.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://365oddsapi.com/sports-api/table-tennis-api",
+    "name": "Table tennis API: Pre-match and live odds data",
+    "snippet": "Betting on table tennis is considered more difficult than betting on football or basketball. However, thanks to the advanced statistics obtained through the API, you can provide users with the needed parameters for data analysis and help them successfully bet on events.",
+    "host_name": "365oddsapi.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  }
+]
