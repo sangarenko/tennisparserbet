@@ -304,3 +304,37 @@ Work Log:
 2. PM2 high restart count (163) — should be reset with `pm2 flush`
 3. All 24 classic bets are "lost" (winRate 0%) — seeded data, not a bug
 4. Matches are Roland Garros (tennis), not table tennis — scrapers need to be pointed at TT events
+---
+Task ID: server-fix-predict-fallback
+Agent: Main
+Task: Deploy latest code to server, fix LLM connectivity, add statistical fallbacks
+
+Work Log:
+- Checked site health: http://2.26.122.152:8080 returning 200, all APIs functional
+- Found project at /var/www/tt-predict/ running via PM2 (port 3001, nginx proxy 8080)
+- Server had NO git repo — initialized git, added remote, pulled latest from GitHub
+- Fixed DATABASE_URL: was pointing to /home/z/my-project/db/custom.db (local path), changed to /var/www/tt-predict/db/custom.db
+- Clean rebuild (rm -rf .next + npm run build) — fixed "Failed to find Server Action" errors that caused 163 PM2 restarts
+- Discovered z-ai-web-dev-sdk LLM proxy unreachable from VPS (connect timeout to 172.25.136.193:8080)
+- Fixed /api/predict: added statistical fallback (odds implied probability + win rate + current score)
+- Fixed /api/ai-predict: added statistical fallback with newsDigest placeholder
+- Fixed /api/chat: added rule-based fallback responses for common questions (bankroll, stats, predictions, help)
+- All three endpoints now work: try LLM first, fall back to statistical/rule-based if unavailable
+- Pushed fixes to GitHub: commit 869b8d2
+
+### Server State After Fix:
+| Component | Status |
+|-----------|--------|
+| PM2 | Online, stable (no more crash loops) |
+| All 10 API endpoints | Working with real DB data |
+| /api/predict | Statistical fallback (LLM unavailable) |
+| /api/ai-predict | Statistical fallback (LLM unavailable) |
+| /api/chat | Rule-based fallback (LLM unavailable) |
+| Database | 2148 matches, 24 classic bets, 21+ RAG bets, 50 predictors |
+| Bankroll | Classic: 3800₽, RAG+: ~3900₽ |
+
+### Remaining Improvements:
+- Real RAG pipeline (news/twitter scraper) for RAG+ AI
+- Analytics tab still uses some hardcoded data
+- Mobile responsiveness improvements
+- Auto-predict scheduler (cron for upcoming matches)
