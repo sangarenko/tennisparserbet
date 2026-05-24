@@ -225,3 +225,44 @@ Stage Summary:
 - GitHub repo created and populated: https://github.com/sangarenko/tennisparserbet
 - Remote set up, future pushes will go to this repo
 - Autopilot cron job active for continued development
+
+---
+Task ID: phase-1-5-full-rewrite
+Agent: Main + full-stack-developer subagents
+Task: Complete rewrite from mock APIs to real 2-AI system with LLM integration
+
+Work Log:
+- Analyzed entire project: 11 API routes, 7 were returning mock data
+- Identified 10 bugs (unused imports, broken handlers, type mismatches)
+- Phase 1: Rewrote all 7 mock APIs to real Prisma DB queries (matches, bets, bankroll, stats, players, predictors, collection-logs)
+- Phase 1: Bankroll POST now supports deposit/withdraw/reset/settings actions
+- Phase 1: Removed 3 broken handlers (sync/verify/prune) that called non-existent APIs
+- Phase 1: Seeded DB: 50 predictors, 24 classic bets, 21 RAG bets, 2 bankrolls
+- Phase 2: Connected /api/predict to real LLM via z-ai-web-dev-sdk — gathers match data, player stats, H2H → LLM → structured prediction
+- Phase 2: Connected /api/chat to real LLM — conversational AI with live betting context
+- Phase 3: Created /api/ai-predict — RAG+ AI endpoint, saves to AiBet table, manages AiBankroll
+- Phase 4: Created AI Battle UI tab (src/components/AiBattleTab.tsx) — side-by-side AI comparison, Predict Both feature, disagreement detection, comparison table
+- Phase 5: Rewrote BankrollTab with 3 views (Classic/RAG+/Comparison), self-contained data fetching
+- Phase 5: UI polish: header glow line, match card hover effects, gradient chart fills, predictor avatars
+- Build verified: `npx next build` passes with 0 errors
+- Pushed to GitHub: https://github.com/sangarenko/tennisparserbet
+
+### Current State:
+| Component | Before | After |
+|-----------|--------|-------|
+| API routes | 7 mocks, 2 real | 10 real (including /api/ai-predict) |
+| AI Predict | Random mock | Real LLM with match context |
+| AI Chat | 5 hardcoded responses | Real LLM with betting data context |
+| Bankroll | Mock 1000 USD | Real DB (5000 RUB) with deposit/withdraw |
+| AI Battle | Not existed | Full UI with side-by-side comparison |
+| Tabs | 6 tabs | 7 tabs (added AI Battle) |
+| Bets in DB | 0 | 24 classic + 21 RAG |
+
+Stage Summary:
+- CRITICAL: All mock APIs replaced with real DB queries
+- CRITICAL: Two separate AI systems now functional (Classic + RAG+)
+- CRITICAL: AI Battle UI allows comparing both AIs side by side
+- Both bankrolls tracked separately in DB
+- Project builds successfully
+- Remaining risks: LLM SDK availability on production server (2.26.122.152)
+- Priority next: Deploy updated code to server, test LLM connectivity from VPS
