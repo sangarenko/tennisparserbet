@@ -12,7 +12,6 @@ import {
   Users,
   PieChart as PieChartIcon,
   Search,
-  Filter,
   RefreshCw,
   Send,
   Clock,
@@ -23,32 +22,23 @@ import {
   Globe,
   Shield,
   Star,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
-  ArrowUpDown,
   Eye,
-  MessageSquare,
   Sparkles,
   CircleDot,
   Flame,
-  Hash,
   UserCheck,
   Settings,
   Trash2,
   ExternalLink,
-  Copy,
-  ThumbsUp,
-  ThumbsDown,
-  HelpCircle,
-  Lightbulb,
-  TrendingDown,
   Layers,
+  Swords,
+  Brain,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
@@ -70,12 +60,12 @@ import {
   Legend,
 } from 'recharts'
 import { useAppStore } from '@/lib/store'
-import { ConfidenceMeter } from '@/components/ConfidenceMeter'
 import { MatchCard } from '@/components/MatchCard'
 import { StatsCard } from '@/components/StatsCard'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadingSkeleton } from '@/components/LoadingSkeleton'
 import { BankrollTab } from '@/components/BankrollTab'
+import { AiBattleTab } from '@/components/AiBattleTab'
 
 // ─── useFetchOnMount hook ───────────────────────────────────────────────────
 function useFetchOnMount() {
@@ -89,6 +79,8 @@ function useFetchOnMount() {
       store.fetchPlayers(),
       store.fetchPredictors(),
       store.fetchCollectionLogs(),
+      store.fetchBankroll(),
+      store.fetchAiBankroll(),
     ])
   }, [store])
 
@@ -122,6 +114,15 @@ function getQualityBadge(tier: string) {
       {tier}
     </span>
   )
+}
+
+// ─── Tooltip style for charts ───────────────────────────────────────────────
+const chartTooltipStyle = {
+  background: 'rgba(15,15,25,0.95)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: '8px',
+  fontSize: '12px',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
 }
 
 // ─── Analytics Data ─────────────────────────────────────────────────────────
@@ -162,10 +163,16 @@ const roiData = [
 
 const CONFIDENCE_COLORS = ['#ef4444', '#f59e0b', '#00d4ff', '#00ff88', '#a855f7']
 
+// ─── Predictor emoji map ────────────────────────────────────────────────────
+const predictorEmojis: Record<string, string> = {
+  Telegram: '📱',
+  Twitter: '🐦',
+  Discord: '💬',
+}
+
 // ─── Page Content (inner component to avoid conditional hooks) ──────────────
 function PageContent() {
   const store = useAppStore()
-  const [appReady, setAppReady] = useState(false)
 
   // Fetch data on mount
   useFetchOnMount()
@@ -177,15 +184,6 @@ function PageContent() {
   const [chatInput, setChatInput] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
-
-  // Bet dialog
-  const [betDialogOpen, setBetDialogOpen] = useState(false)
-  const [bankrollDialogOpen, setBankrollDialogOpen] = useState(false)
-  const [bankrollInput, setBankrollInput] = useState('')
-  const [betMatchId, setBetMatchId] = useState('')
-  const [betWinner, setBetWinner] = useState('')
-  const [betOdds, setBetOdds] = useState(0)
-  const [betStake, setBetStake] = useState('')
 
   // Predictor filters
   const [predictorSearch, setPredictorSearch] = useState('')
@@ -207,6 +205,21 @@ function PageContent() {
   )
   const correctPredictions = store.stats?.correctPredictions || 0
   const winRate = store.stats?.winRate || 0
+
+  // AI Battle stat: matches with both AI predictions
+  const battleMatches = store.matches.filter(
+    (m) => m.predictions && m.predictions.length >= 2
+  )
+  const battleAgreementRate = battleMatches.length > 0
+    ? Math.round(
+        (battleMatches.filter(
+          (m) =>
+            m.predictions![0].predictedWinner === m.predictions![1].predictedWinner
+        ).length /
+          battleMatches.length) *
+          100
+      )
+    : 0
 
   // ─── Filtered Data ──────────────────────────────────────────────────────
   const [matchFilter, setMatchFilter] = useState('all')
@@ -243,7 +256,6 @@ function PageContent() {
       })
       if (res.ok) {
         const data = await res.json()
-        // data is { matchId, predictions: [...] }
         const predictions = data.predictions || []
         if (predictions.length > 0) {
           store.updateMatch(match.id, { predictions })
@@ -285,77 +297,9 @@ function PageContent() {
   }, [chatInput, isChatLoading, store])
 
   const handlePlaceBet = useCallback((match: { id: string; player1: string; player2: string; odds1?: number; odds2?: number }) => {
-    setBetMatchId(match.id)
-    setBetWinner('')
-    setBetOdds(0)
-    setBetStake('')
-    setBetDialogOpen(true)
+    // Navigate to bankroll tab for bet placement
+    setActiveTab('bankroll')
   }, [])
-
-  const handleConfirmBet = useCallback(async () => {
-    if (!betWinner || !betStake) return
-    try {
-      await fetch('/api/bets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          matchId: betMatchId,
-          predictedWinner: betWinner,
-          odds: betOdds,
-          stake: parseFloat(betStake),
-        }),
-      })
-      store.fetchBets()
-    } catch (err) {
-      console.error('Bet error:', err)
-    }
-    setBetDialogOpen(false)
-  }, [betMatchId, betWinner, betOdds, betStake, store])
-
-  const handleSetBankroll = useCallback(async () => {
-    const amount = parseFloat(bankrollInput)
-    if (isNaN(amount) || amount <= 0) return
-    try {
-      await fetch('/api/bankroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ total: amount }),
-      })
-      store.setBankroll({ total: amount, currency: 'USD' })
-    } catch (err) {
-      console.error('Bankroll error:', err)
-    }
-    setBankrollDialogOpen(false)
-    setBankrollInput('')
-  }, [bankrollInput, store])
-
-  const handleSyncSources = useCallback(async () => {
-    try {
-      await fetch('/api/sync', { method: 'POST' })
-      store.fetchMatches()
-      store.fetchCollectionLogs()
-    } catch (err) {
-      console.error('Sync error:', err)
-    }
-  }, [store])
-
-  const handleVerifyAll = useCallback(async () => {
-    try {
-      await fetch('/api/verify', { method: 'POST' })
-      store.fetchPredictors()
-    } catch (err) {
-      console.error('Verify error:', err)
-    }
-  }, [store])
-
-  const handlePruneLowQuality = useCallback(async () => {
-    try {
-      await fetch('/api/prune', { method: 'POST' })
-      store.fetchMatches()
-    } catch (err) {
-      console.error('Prune error:', err)
-    }
-  }, [store])
 
   // ─── Quick chat actions ────────────────────────────────────────────────
   const quickActions = [
@@ -367,9 +311,10 @@ function PageContent() {
 
   // ─── Tab items ──────────────────────────────────────────────────────────
   const tabs = [
-    { value: 'predictions', label: 'Predictions', icon: Target },
+    { value: 'predictions', label: 'Matches', icon: Target },
+    { value: 'ai-battle', label: 'AI Battle', icon: Zap },
     { value: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { value: 'chat', label: 'AI Assistant', icon: Bot },
+    { value: 'chat', label: 'AI Chat', icon: Bot },
     { value: 'bankroll', label: 'Bankroll', icon: Wallet },
     { value: 'sources', label: 'Sources', icon: Database },
     { value: 'predictors', label: 'Predictors', icon: Users },
@@ -420,8 +365,11 @@ function PageContent() {
             </div>
           </div>
 
+          {/* ── Animated Gradient Border Line ──────────────────────────────── */}
+          <div className="header-glow-line mb-6" />
+
           {/* ── Quick Stats Row ──────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <StatsCard
               title="Total Matches"
               value={store.matches.length || store.stats?.totalMatches || 0}
@@ -449,6 +397,13 @@ function PageContent() {
               icon={TrendingUp}
               color="#00ff88"
               subtitle={`${correctPredictions} correct`}
+            />
+            <StatsCard
+              title="AI Battle"
+              value={battleMatches.length}
+              icon={Swords}
+              color="#f59e0b"
+              subtitle={`${battleAgreementRate}% agree`}
             />
           </div>
         </motion.header>
@@ -523,8 +478,7 @@ function PageContent() {
                 <EmptyState
                   icon={Target}
                   title="No Matches Found"
-                  description="No matches match your current filter. Try changing the filter or sync sources."
-                  action={{ label: 'Sync Sources', onClick: handleSyncSources }}
+                  description="No matches match your current filter. Try changing the filter."
                 />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -544,7 +498,14 @@ function PageContent() {
             </TabsContent>
 
             {/* ══════════════════════════════════════════════════════════════ */}
-            {/* ── Tab 2: Analytics ──────────────────────────────────────── */}
+            {/* ── Tab 2: AI Battle ──────────────────────────────────────── */}
+            {/* ══════════════════════════════════════════════════════════════ */}
+            <TabsContent value="ai-battle" className="mt-6">
+              <AiBattleTab matches={store.matches} />
+            </TabsContent>
+
+            {/* ══════════════════════════════════════════════════════════════ */}
+            {/* ── Tab 3: Analytics ──────────────────────────────────────── */}
             {/* ══════════════════════════════════════════════════════════════ */}
             <TabsContent value="analytics" className="mt-6">
               {/* Summary Cards */}
@@ -561,7 +522,7 @@ function PageContent() {
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-4 rounded-xl">
                   <p className="text-xs text-muted-foreground mb-1">Total Profit</p>
                   <p className={`text-2xl font-bold ${(store.stats?.totalProfit || 0) >= 0 ? 'text-neon-green' : 'text-neon-red'}`}>
-                    ${(store.stats?.totalProfit || 0).toFixed(2)}
+                    ₽{(store.stats?.totalProfit || 0).toFixed(2)}
                   </p>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-4 rounded-xl">
@@ -572,33 +533,36 @@ function PageContent() {
 
               {/* Charts Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* Predictions Over Time - LineChart */}
+                {/* Predictions Over Time - LineChart with gradient fill */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 rounded-xl">
                   <div className="flex items-center gap-2 mb-4">
                     <TrendingUp className="w-4 h-4 text-neon-green" />
                     <h3 className="text-sm font-semibold">Predictions Over Time</h3>
                   </div>
                   <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={analyticsChartData}>
+                    <AreaChart data={analyticsChartData}>
+                      <defs>
+                        <linearGradient id="predGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="corrGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#00ff88" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#00ff88" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                       <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={11} />
                       <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                      <Tooltip
-                        contentStyle={{
-                          background: 'rgba(15,15,25,0.95)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                      />
+                      <Tooltip contentStyle={chartTooltipStyle} />
                       <Legend />
-                      <Line type="monotone" dataKey="predictions" stroke="#a855f7" strokeWidth={2} dot={{ fill: '#a855f7', r: 4 }} />
-                      <Line type="monotone" dataKey="correct" stroke="#00ff88" strokeWidth={2} dot={{ fill: '#00ff88', r: 4 }} />
-                    </LineChart>
+                      <Area type="monotone" dataKey="predictions" stroke="#a855f7" strokeWidth={2} fill="url(#predGrad)" />
+                      <Area type="monotone" dataKey="correct" stroke="#00ff88" strokeWidth={2} fill="url(#corrGrad)" />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </motion.div>
 
-                {/* Confidence Distribution - BarChart */}
+                {/* Confidence Distribution - BarChart with gradient */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6 rounded-xl">
                   <div className="flex items-center gap-2 mb-4">
                     <BarChart3 className="w-4 h-4 text-neon-purple" />
@@ -606,27 +570,28 @@ function PageContent() {
                   </div>
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={confidenceData}>
+                      <defs>
+                        {confidenceData.map((_, i) => (
+                          <linearGradient key={`barGrad${i}`} id={`barGrad${i}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={CONFIDENCE_COLORS[i % CONFIDENCE_COLORS.length]} stopOpacity={1} />
+                            <stop offset="95%" stopColor={CONFIDENCE_COLORS[i % CONFIDENCE_COLORS.length]} stopOpacity={0.4} />
+                          </linearGradient>
+                        ))}
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                       <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={11} />
                       <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                      <Tooltip
-                        contentStyle={{
-                          background: 'rgba(15,15,25,0.95)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                      />
+                      <Tooltip contentStyle={chartTooltipStyle} />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                         {confidenceData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={CONFIDENCE_COLORS[index % CONFIDENCE_COLORS.length]} />
+                          <Cell key={`cell-${index}`} fill={`url(#barGrad${index})`} />
                         ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </motion.div>
 
-                {/* Source Comparison - PieChart (icon from lucide, chart from recharts) */}
+                {/* Source Comparison - PieChart */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 rounded-xl">
                   <div className="flex items-center gap-2 mb-4">
                     <PieChartIcon className="w-4 h-4 text-neon-blue" />
@@ -634,6 +599,14 @@ function PageContent() {
                   </div>
                   <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
+                      <defs>
+                        {sourceData.map((entry, index) => (
+                          <linearGradient key={`pieGrad${index}`} id={`pieGrad${index}`} x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor={entry.color} stopOpacity={1} />
+                            <stop offset="100%" stopColor={entry.color} stopOpacity={0.6} />
+                          </linearGradient>
+                        ))}
+                      </defs>
                       <Pie
                         data={sourceData}
                         cx="50%"
@@ -644,18 +617,11 @@ function PageContent() {
                         dataKey="value"
                         label={({ name, value }) => `${name}: ${value}%`}
                       >
-                        {sourceData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        {sourceData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={`url(#pieGrad${index})`} />
                         ))}
                       </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          background: 'rgba(15,15,25,0.95)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                      />
+                      <Tooltip contentStyle={chartTooltipStyle} />
                     </PieChart>
                   </ResponsiveContainer>
                 </motion.div>
@@ -677,14 +643,7 @@ function PageContent() {
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                       <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={11} />
                       <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                      <Tooltip
-                        contentStyle={{
-                          background: 'rgba(15,15,25,0.95)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                      />
+                      <Tooltip contentStyle={chartTooltipStyle} />
                       <Area type="monotone" dataKey="roi" stroke="#00ff88" strokeWidth={2} fill="url(#roiGradient)" />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -742,7 +701,7 @@ function PageContent() {
             </TabsContent>
 
             {/* ══════════════════════════════════════════════════════════════ */}
-            {/* ── Tab 3: AI Assistant ───────────────────────────────────── */}
+            {/* ── Tab 4: AI Assistant ───────────────────────────────────── */}
             {/* ══════════════════════════════════════════════════════════════ */}
             <TabsContent value="chat" className="mt-6">
               <div className="glass-card rounded-xl overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 320px)', minHeight: '500px' }}>
@@ -847,20 +806,14 @@ function PageContent() {
             </TabsContent>
 
             {/* ══════════════════════════════════════════════════════════════ */}
-            {/* ── Tab 4: Bankroll ───────────────────────────────────────── */}
+            {/* ── Tab 5: Bankroll ───────────────────────────────────────── */}
             {/* ══════════════════════════════════════════════════════════════ */}
             <TabsContent value="bankroll" className="mt-6">
-              <BankrollTab
-                bankroll={store.bankroll}
-                bets={store.bets}
-                onSetBankroll={(amount) => {
-                  store.setBankroll({ total: amount, currency: 'USD' })
-                }}
-              />
+              <BankrollTab />
             </TabsContent>
 
             {/* ══════════════════════════════════════════════════════════════ */}
-            {/* ── Tab 5: Sources ────────────────────────────────────────── */}
+            {/* ── Tab 6: Sources ────────────────────────────────────────── */}
             {/* ══════════════════════════════════════════════════════════════ */}
             <TabsContent value="sources" className="mt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -902,8 +855,8 @@ function PageContent() {
                   </div>
                   <div className="mt-4 flex gap-2">
                     <button
-                      onClick={handleSyncSources}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30 transition-all"
+                      disabled
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-white/[0.06] text-muted-foreground border border-white/[0.06] cursor-not-allowed"
                     >
                       <RefreshCw className="w-3 h-3" />
                       Sync Now
@@ -952,8 +905,8 @@ function PageContent() {
                   </div>
                   <div className="mt-4 flex gap-2">
                     <button
-                      onClick={handleSyncSources}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-neon-purple/20 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/30 transition-all"
+                      disabled
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-white/[0.06] text-muted-foreground border border-white/[0.06] cursor-not-allowed"
                     >
                       <RefreshCw className="w-3 h-3" />
                       Sync Now
@@ -973,15 +926,15 @@ function PageContent() {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={handleVerifyAll}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30 transition-all"
+                        disabled
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-white/[0.06] text-muted-foreground border border-white/[0.06] cursor-not-allowed"
                       >
                         <Shield className="w-3 h-3" />
                         Verify All
                       </button>
                       <button
-                        onClick={handlePruneLowQuality}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-neon-red/20 text-neon-red border border-neon-red/30 hover:bg-neon-red/30 transition-all"
+                        disabled
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-white/[0.06] text-muted-foreground border border-white/[0.06] cursor-not-allowed"
                       >
                         <Trash2 className="w-3 h-3" />
                         Prune Low Quality
@@ -1030,7 +983,7 @@ function PageContent() {
             </TabsContent>
 
             {/* ══════════════════════════════════════════════════════════════ */}
-            {/* ── Tab 6: Predictors ─────────────────────────────────────── */}
+            {/* ── Tab 7: Predictors ─────────────────────────────────────── */}
             {/* ══════════════════════════════════════════════════════════════ */}
             <TabsContent value="predictors" className="mt-6">
               {/* Search & Filters */}
@@ -1094,94 +1047,101 @@ function PageContent() {
                 />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredPredictors.map((predictor, index) => (
-                    <motion.div
-                      key={predictor.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="glass-card p-4 rounded-xl"
-                    >
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple/20 to-neon-blue/20 flex items-center justify-center border border-white/[0.06]">
-                            <span className="text-sm font-bold text-white">
-                              {predictor.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-semibold">{predictor.name}</h4>
-                              {predictor.verified && (
-                                <Shield className="w-3 h-3 text-neon-blue" />
+                  {filteredPredictors.map((predictor, index) => {
+                    const avatarEmoji = predictor.avatarEmoji || predictorEmojis[predictor.platform || ''] || null
+                    return (
+                      <motion.div
+                        key={predictor.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="glass-card p-4 rounded-xl"
+                      >
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple/20 to-neon-blue/20 flex items-center justify-center border border-white/[0.06] text-sm">
+                              {avatarEmoji ? (
+                                <span className="text-base">{avatarEmoji}</span>
+                              ) : (
+                                <span className="text-sm font-bold text-white">
+                                  {predictor.name.charAt(0).toUpperCase()}
+                                </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {predictor.platform && (
-                                <span className="text-xs text-muted-foreground">{predictor.platform}</span>
-                              )}
-                              {getQualityBadge(predictor.tier)}
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-semibold">{predictor.name}</h4>
+                                {predictor.verified && (
+                                  <Shield className="w-3 h-3 text-neon-blue" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {predictor.platform && (
+                                  <span className="text-xs text-muted-foreground">{predictor.platform}</span>
+                                )}
+                                {getQualityBadge(predictor.tier)}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Stats */}
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div className="p-2 rounded-lg bg-white/[0.04]">
-                          <p className="text-xs text-muted-foreground mb-0.5">Accuracy</p>
-                          <p className="text-sm font-bold" style={{
-                            color: predictor.accuracy >= 80 ? '#00ff88'
-                              : predictor.accuracy >= 65 ? '#00d4ff'
-                              : predictor.accuracy >= 50 ? '#f59e0b'
-                              : '#ef4444'
-                          }}>
-                            {predictor.accuracy}%
-                          </p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-white/[0.04]">
-                          <p className="text-xs text-muted-foreground mb-0.5">Predictions</p>
-                          <p className="text-sm font-bold">{predictor.totalPredictions}</p>
-                        </div>
-                      </div>
-
-                      {/* Accuracy Bar */}
-                      <div className="mb-3">
-                        <div className="h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${predictor.accuracy}%`,
-                              backgroundColor: predictor.accuracy >= 80 ? '#00ff88'
+                        {/* Stats */}
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div className="p-2 rounded-lg bg-white/[0.04]">
+                            <p className="text-xs text-muted-foreground mb-0.5">Accuracy</p>
+                            <p className="text-sm font-bold" style={{
+                              color: predictor.accuracy >= 80 ? '#00ff88'
                                 : predictor.accuracy >= 65 ? '#00d4ff'
                                 : predictor.accuracy >= 50 ? '#f59e0b'
-                                : '#ef4444',
-                              boxShadow: `0 0 6px ${predictor.accuracy >= 80 ? '#00ff88' : predictor.accuracy >= 65 ? '#00d4ff' : '#f59e0b'}`,
-                            }}
-                          />
+                                : '#ef4444'
+                            }}>
+                              {predictor.accuracy}%
+                            </p>
+                          </div>
+                          <div className="p-2 rounded-lg bg-white/[0.04]">
+                            <p className="text-xs text-muted-foreground mb-0.5">Predictions</p>
+                            <p className="text-sm font-bold">{predictor.totalPredictions}</p>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Verified Badge */}
-                      <div className="flex items-center justify-between">
-                        {predictor.verified ? (
-                          <div className="flex items-center gap-1.5 text-neon-green">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span className="text-xs">Verified</span>
+                        {/* Accuracy Bar */}
+                        <div className="mb-3">
+                          <div className="h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${predictor.accuracy}%`,
+                                backgroundColor: predictor.accuracy >= 80 ? '#00ff88'
+                                  : predictor.accuracy >= 65 ? '#00d4ff'
+                                  : predictor.accuracy >= 50 ? '#f59e0b'
+                                  : '#ef4444',
+                                boxShadow: `0 0 6px ${predictor.accuracy >= 80 ? '#00ff88' : predictor.accuracy >= 65 ? '#00d4ff' : '#f59e0b'}`,
+                              }}
+                            />
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-neon-orange">
-                            <AlertTriangle className="w-3 h-3" />
-                            <span className="text-xs">Unverified</span>
-                          </div>
-                        )}
-                        <button className="text-xs text-muted-foreground hover:text-white transition-colors flex items-center gap-1">
-                          View Profile <ChevronRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
+                        </div>
+
+                        {/* Verified Badge */}
+                        <div className="flex items-center justify-between">
+                          {predictor.verified ? (
+                            <div className="flex items-center gap-1.5 text-neon-green">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span className="text-xs">Verified</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-neon-orange">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span className="text-xs">Unverified</span>
+                            </div>
+                          )}
+                          <button className="text-xs text-muted-foreground hover:text-white transition-colors flex items-center gap-1">
+                            View Profile <ChevronRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
                 </div>
               )}
             </TabsContent>
@@ -1196,152 +1156,6 @@ function PageContent() {
           </p>
         </footer>
       </div>
-
-      {/* ── Bet Dialog ──────────────────────────────────────────────────── */}
-      {betDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass-card p-6 rounded-xl w-full max-w-sm mx-4"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold">Place Bet</h3>
-              <button onClick={() => setBetDialogOpen(false)} className="text-muted-foreground hover:text-white">
-                <XCircle className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Predicted Winner</label>
-                <select
-                  value={betWinner}
-                  onChange={(e) => setBetWinner(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-neon-purple/50"
-                >
-                  <option value="">Select winner...</option>
-                  {store.matches.find((m) => m.id === betMatchId) && (
-                    <>
-                      <option value={store.matches.find((m) => m.id === betMatchId)?.player1}>
-                        {store.matches.find((m) => m.id === betMatchId)?.player1}
-                      </option>
-                      <option value={store.matches.find((m) => m.id === betMatchId)?.player2}>
-                        {store.matches.find((m) => m.id === betMatchId)?.player2}
-                      </option>
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Odds</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={betOdds || ''}
-                  onChange={(e) => setBetOdds(parseFloat(e.target.value) || 0)}
-                  placeholder="Enter odds..."
-                  className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-neon-purple/50"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Stake ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={betStake}
-                  onChange={(e) => setBetStake(e.target.value)}
-                  placeholder="Enter stake amount..."
-                  className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-neon-purple/50"
-                />
-              </div>
-
-              {betOdds > 0 && betStake && (
-                <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Potential Return</span>
-                    <span className="text-neon-green font-bold">
-                      ${(parseFloat(betStake) * betOdds).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs mt-1">
-                    <span className="text-muted-foreground">Potential Profit</span>
-                    <span className="text-neon-green font-bold">
-                      +${((parseFloat(betStake) * betOdds) - parseFloat(betStake)).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => setBetDialogOpen(false)}
-                  className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-white/[0.06] hover:bg-white/[0.1] transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmBet}
-                  disabled={!betWinner || !betStake}
-                  className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Place Bet
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* ── Bankroll Dialog ─────────────────────────────────────────────── */}
-      {bankrollDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass-card p-6 rounded-xl w-full max-w-sm mx-4"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold">Set Bankroll</h3>
-              <button onClick={() => setBankrollDialogOpen(false)} className="text-muted-foreground hover:text-white">
-                <XCircle className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Balance Amount ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={bankrollInput}
-                  onChange={(e) => setBankrollInput(e.target.value)}
-                  placeholder="Enter new balance..."
-                  className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-neon-purple/50"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => setBankrollDialogOpen(false)}
-                  className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-white/[0.06] hover:bg-white/[0.1] transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSetBankroll}
-                  disabled={!bankrollInput || parseFloat(bankrollInput) <= 0}
-                  className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-neon-purple/20 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Set Balance
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
     </div>
   )
 }

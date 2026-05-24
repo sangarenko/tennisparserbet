@@ -41,7 +41,7 @@ export function MatchCard({ match, onGetPrediction, onPlaceBet, isLoading }: Mat
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-4 rounded-xl"
+      className="glass-card p-4 rounded-xl match-card-glow"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">

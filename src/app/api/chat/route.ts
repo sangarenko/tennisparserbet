@@ -1,27 +1,86 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import ZAI from 'z-ai-web-dev-sdk'
 
-export async function POST(request: Request) {
-  const body = await request.json()
-  const { message, context } = body
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { message, context: chatContext } = body
 
-  // Simulate AI chat response
-  const responses = [
-    "Based on current form analysis, Fan Zhendong has a 78% probability of winning today's match. His recent forehand conversion rate improved by 12% compared to last month, and he holds a 4-1 head-to-head advantage against Harimoto on indoor courts.",
-    "I'd recommend a cautious bankroll approach for this card. With 3 matches available, consider spreading stakes: 40% on the highest confidence pick (Fan Zhendong at 82%), 35% on Wang Chuqin (75%), and 25% on Calderano vs Liang Jingkun which is essentially a coin flip.",
-    "The current prediction model shows 73.2% average confidence across all active matches. Our ensemble approach combines statistical modeling, player form analysis, and historical pattern matching. The model accuracy has improved by 5.3% over the past week.",
-    "Looking at the betting trends: Player 1 odds have shortened from 1.65 to 1.55 over the last hour, suggesting market confidence in Fan Zhendong. The Kelly Criterion suggests an optimal stake of 3.2% of your bankroll for maximum growth.",
-    "Key factors for today's matches: (1) Indoor court favors aggressive playstyles, (2) Tournament fatigue may affect players in back-to-back matches, (3) Historical data shows 68% win rate for higher-ranked players in this tournament format.",
-  ]
+    if (!message) {
+      return NextResponse.json({ error: 'message is required' }, { status: 400 })
+    }
 
-  const response = context?.includes('confidence') || context?.includes('accuracy')
-    ? responses[2]
-    : context?.includes('bankroll') || context?.includes('stake')
-    ? responses[1]
-    : context?.includes('odds') || context?.includes('market')
-    ? responses[3]
-    : context?.includes('factor') || context?.includes('strategy')
-    ? responses[4]
-    : responses[0]
+    // Gather betting context from DB
+    const totalMatches = await db.match.count()
+    const bets = await db.bet.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      include: { match: true }
+    })
+    const bankroll = await db.bankroll.findFirst()
+    const recentMatches = await db.match.findMany({
+      take: 5,
+      orderBy: { startTime: 'desc' },
+      include: { odds: true }
+    })
 
-  return NextResponse.json({ response })
+    const betSummaries = bets.slice(0, 5).map(b => {
+      const profit = (b.payout || 0) - b.stake
+      return `${b.predictedWinner} @ ${b.odds} - ${b.isWin ? 'WON' : (b.settledAt ? 'LOST' : 'PENDING')} (${profit >= 0 ? '+' : ''}${profit}₽)`
+    }).join('; ')
+
+    const matchSummaries = recentMatches.map(m =>
+      `${m.player1} vs ${m.player2} (${m.status}, odds: ${m.odds[0]?.odds1 || '?'}/${m.odds[0]?.odds2 || '?'})`
+    ).join('; ')
+
+    const systemPrompt = `You are TT Predict Pro AI Assistant - an expert in table tennis betting analysis and strategy. You help users with:
+- Match analysis and predictions
+- Bankroll management strategies
+- Understanding odds and value bets
+- Betting psychology and discipline
+
+Current user data:
+- Total matches tracked: ${totalMatches}
+- Bankroll: ${bankroll?.currentAmount || 0}₽ (${bankroll?.strategy || 'flat'} strategy, ${bankroll?.riskLevel || 'medium'} risk)
+- Recent bets: ${betSummaries || 'No bets yet'}
+- Recent matches: ${matchSummaries || 'No recent matches'}
+
+Keep responses concise (2-4 sentences). Use data to support your advice. Speak in the same language as the user.`
+
+    const zai = await ZAI.create()
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt },
+    ]
+
+    // Add recent chat context (last 8 messages)
+    if (chatContext) {
+      const recentMessages = chatContext.split('\n').slice(-8)
+      for (const msg of recentMessages) {
+        if (msg.startsWith('user:')) {
+          messages.push({ role: 'user', content: msg.replace('user:', '').trim() })
+        } else if (msg.startsWith('assistant:')) {
+          messages.push({ role: 'assistant', content: msg.replace('assistant:', '').trim() })
+        }
+      }
+    }
+
+    // Add current message
+    messages.push({ role: 'user', content: message })
+
+    const completion = await zai.chat.completions.create({
+      messages,
+      temperature: 0.7,
+    })
+
+    const response = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.'
+    return NextResponse.json({ response })
+
+  } catch (error) {
+    console.error('Chat error:', error)
+    return NextResponse.json(
+      { response: 'Sorry, something went wrong. Please try again.' },
+      { status: 200 } // Return 200 with error message to avoid UI breaking
+    )
+  }
 }
