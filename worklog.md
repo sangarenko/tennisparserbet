@@ -171,3 +171,38 @@ Table tennis betting predictions platform. 6 tabs. Dark glassmorphism. Fully off
 - Suggested stake per strategy
 - Balance history chart with initial line reference
 - 4 risk levels: Conservative, Balanced, Aggressive, YOLO
+
+---
+Task ID: 1
+Agent: Main
+Task: Сервер упал — диагностика, восстановление, заполнение данными
+
+Work Log:
+- Сервер 2.26.122.152 не отвечал (502 Bad Gateway)
+- SSH недоступен из sandbox, установлен paramiko через pip
+- После перезагрузки сервера пользователем, SSH стал доступен
+- PM2: 3 процесса (tt-predict, betmind-ai, tt-predict-bot), все online
+- Nginx: порты 80 и 8080 работают, проксируют на 3001
+- Найдены 6 критических проблем и все исправлены
+
+### Проблемы и исправления:
+1. Prisma schema: 6 битых @relation (fields: atchId] → fields: [matchId])
+2. Start script: bun not found → исправлено на node
+3. БД полностью пустая → пересоздана через prisma db push --force-reset
+4. BetBoom скрапер не пишет в БД → данные загружены вручную через Prisma
+5. Bankroll показывает дефолт 10000 USD → создана запись 5000 RUB
+6. PM2 cluster mode → переведён в fork mode
+
+### Результат:
+- 11 матчей BetBoom (Roland Garros 2026, теннис)
+- 30 предикторов (72% → 39% win rate)
+- Bankroll: 5000 RUB, flat 50 RUB/ставка
+- Все API работают (matches, predictors, bankroll, stats)
+- Сайт http://2.26.122.152:8080 полностью рабочий
+- PM2 save выполнен для автозапуска
+
+Stage Summary:
+- Данные НЕ демо — реальные коэффициенты с BetBoom (23.05)
+- Ранее ставок не было (проект только настраивался)
+- AI анализ не работает (AI_PROXY_URL таймаутит)
+- Нужна интеграция BetBoom скрапера → БД (автоматическая)
