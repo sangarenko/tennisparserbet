@@ -126,14 +126,31 @@
   }
 }
 
-/* Glassmorphism card */
+/* ── Glassmorphism card ─────────────────────────────────────────────────── */
 .glass-card {
   background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Gradient text */
+.glass-card-hover {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.glass-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 16px rgba(168, 85, 247, 0.12),
+    0 0 32px rgba(0, 212, 255, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Gradient text ──────────────────────────────────────────────────────── */
 .gradient-text {
   background: linear-gradient(135deg, #00ff88, #00d4ff, #a855f7);
   -webkit-background-clip: text;
@@ -141,12 +158,23 @@
   background-clip: text;
 }
 
-/* Neon glow utilities */
+/* ── Neon glow utilities ───────────────────────────────────────────────── */
 .glow-green { text-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }
 .glow-purple { text-shadow: 0 0 10px rgba(168, 85, 247, 0.5); }
 .glow-blue { text-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
 
-/* Custom scrollbar */
+/* ── Panel glow effects ────────────────────────────────────────────────── */
+.panel-glow-blue {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.1), 0 0 40px rgba(0, 212, 255, 0.05), inset 0 1px 0 rgba(0, 212, 255, 0.1);
+}
+.panel-glow-purple {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.1), 0 0 40px rgba(168, 85, 247, 0.05), inset 0 1px 0 rgba(168, 85, 247, 0.1);
+}
+.panel-glow-green {
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.1), 0 0 40px rgba(0, 255, 136, 0.05), inset 0 1px 0 rgba(0, 255, 136, 0.1);
+}
+
+/* ── Custom scrollbar ──────────────────────────────────────────────────── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -161,7 +189,7 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Line clamp utilities */
+/* ── Line clamp utilities ──────────────────────────────────────────────── */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -175,7 +203,7 @@
   overflow: hidden;
 }
 
-/* Animated header glow line */
+/* ── Animated header glow line ────────────────────────────────────────── */
 .header-glow-line {
   height: 2px;
   border-radius: 1px;
@@ -205,14 +233,174 @@
   }
 }
 
-/* Match card hover glow effect */
+/* ── Match card hover glow effect ──────────────────────────────────────── */
 .match-card-glow {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 .match-card-glow:hover {
-  transform: scale(1.02);
+  transform: translateY(-3px) scale(1.01);
   box-shadow:
-    0 0 12px rgba(168, 85, 247, 0.15),
-    0 0 24px rgba(0, 212, 255, 0.1),
-    0 4px 20px rgba(0, 0, 0, 0.3);
+    0 0 20px rgba(168, 85, 247, 0.15),
+    0 0 40px rgba(0, 212, 255, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.4);
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+/* ── Background grid pattern ───────────────────────────────────────────── */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Live pulse ring ───────────────────────────────────────────────────── */
+@keyframes livePulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.live-pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: rgba(0, 255, 136, 0.4);
+  animation: livePulseRing 1.5s ease-out infinite;
+}
+
+/* ── Typing indicator animation ────────────────────────────────────────── */
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-6px);
+  }
+}
+.typing-dot {
+  animation: typingBounce 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* ── Scrolling ticker ─────────────────────────────────────────────────── */
+@keyframes tickerScroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+.ticker-scroll {
+  animation: tickerScroll 30s linear infinite;
+}
+.ticker-scroll:hover {
+  animation-play-state: paused;
+}
+
+/* ── Gradient progress bar ─────────────────────────────────────────────── */
+.progress-gradient-green {
+  background: linear-gradient(90deg, #00ff88, #00d4ff);
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+}
+.progress-gradient-purple {
+  background: linear-gradient(90deg, #a855f7, #00d4ff);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
+}
+.progress-gradient-blue {
+  background: linear-gradient(90deg, #00d4ff, #00ff88);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+}
+
+/* ── Sparkline mini chart ──────────────────────────────────────────────── */
+.sparkline-container {
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+/* ── Tab indicator slide ───────────────────────────────────────────────── */
+.tab-active-indicator {
+  position: relative;
+}
+.tab-active-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, #a855f7, #00d4ff);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+/* ── VS badge ─────────────────────────────────────────────────────────── */
+.vs-badge {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(0, 212, 255, 0.2));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  box-shadow:
+    0 0 20px rgba(168, 85, 247, 0.3),
+    0 0 40px rgba(0, 212, 255, 0.15);
+}
+
+/* ── Modal overlay ─────────────────────────────────────────────────────── */
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Disagreement badge animation ─────────────────────────────────────── */
+@keyframes disagreementPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+.disagreement-badge {
+  animation: disagreementPulse 2s ease-in-out infinite;
+}
+
+/* ── Neon border animation ────────────────────────────────────────────── */
+@keyframes neonBorderRotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+.neon-border-animated {
+  position: relative;
+}
+.neon-border-animated::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(90deg, #00ff88, #00d4ff, #a855f7, #f59e0b, #00ff88);
+  background-size: 300% 100%;
+  animation: neonBorderRotate 4s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.5;
 }

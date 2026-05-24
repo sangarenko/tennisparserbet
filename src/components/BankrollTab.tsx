@@ -22,7 +22,6 @@ import {
   Scale,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import {
   AreaChart,
   Area,
@@ -453,7 +452,9 @@ export function BankrollTab() {
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
                 <p className="text-lg font-bold text-neon-blue">{pct(classicBr?.winRate ?? 0)}</p>
-                <Progress value={classicBr?.winRate ?? 0} className="mt-1 h-1" />
+                <div className="mt-1 h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
+                  <div className="h-full rounded-full progress-gradient-blue" style={{ width: `${classicBr?.winRate ?? 0}%` }} />
+                </div>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Total Bets</p>
@@ -690,7 +691,9 @@ export function BankrollTab() {
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
                 <p className="text-lg font-bold text-neon-purple">{pct(ragBr?.winRate ?? 0)}</p>
-                <Progress value={ragBr?.winRate ?? 0} className="mt-1 h-1" />
+                <div className="mt-1 h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
+                  <div className="h-full rounded-full progress-gradient-purple" style={{ width: `${ragBr?.winRate ?? 0}%` }} />
+                </div>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Total Bets</p>
@@ -824,7 +827,9 @@ export function BankrollTab() {
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Win Rate</p>
                     <p className="text-xl font-bold">{pct(classicBr?.winRate ?? 0)}</p>
-                    <Progress value={classicBr?.winRate ?? 0} className="mt-1 h-1" />
+                    <div className="mt-1 h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full progress-gradient-blue" style={{ width: `${classicBr?.winRate ?? 0}%` }} />
+                    </div>
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Total Profit</p>
@@ -870,7 +875,9 @@ export function BankrollTab() {
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Win Rate</p>
                     <p className="text-xl font-bold">{pct(ragBr?.winRate ?? 0)}</p>
-                    <Progress value={ragBr?.winRate ?? 0} className="mt-1 h-1" />
+                    <div className="mt-1 h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full progress-gradient-purple" style={{ width: `${ragBr?.winRate ?? 0}%` }} />
+                    </div>
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Total Profit</p>
