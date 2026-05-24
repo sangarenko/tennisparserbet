@@ -338,3 +338,104 @@ Work Log:
 - Analytics tab still uses some hardcoded data
 - Mobile responsiveness improvements
 - Auto-predict scheduler (cron for upcoming matches)
+---
+Task ID: major-ui-overhaul-qa
+Agent: Main + full-stack-developer subagent
+Task: QA production site, fix bugs, improve styling, add features
+
+Work Log:
+- QA'd production site via agent-browser on http://2.26.122.152:8080
+- Tested all 7 tabs: Matches (working), AI Battle (stuck loading), Analytics (working), Chat (no responses), Bankroll (strategy button), Sources (hardcoded), Predictors (search only)
+- Identified 4 bugs and multiple styling/feature improvement opportunities
+- Delegated major overhaul to full-stack-developer subagent
+
+### Bug Fixes Applied:
+1. **AI Battle tab loading** — Added `fetchWithTimeout()` with 10s timeout per endpoint, `Promise.allSettled` for partial data display, retry button always visible, error banner showing failed endpoints
+2. **Chat not showing responses** — Added AbortController with 30s timeout, proper `!res.ok` error handling, race condition prevention (include user message in context before API call)
+3. **Sources tab hardcoded data** — Replaced hardcoded "42 matches", "2m ago", "98%" with real `store.collectionLogs` data via `useMemo`
+4. **Analytics tab hardcoded charts** — All 4 chart datasets (analyticsChartData, confidenceData, sourceData, roiData) now generated dynamically from `store.matches`, `store.bets`, `store.collectionLogs`
+5. **Chat route.ts syntax errors** — Fixed truncated string literals from previous server-side edit
+
+### Styling Improvements (15+ new CSS utilities):
+- `.glass-card-hover` — Glass card with hover lift + neon glow
+- `.panel-glow-blue/purple/green` — Glow shadow effects for winning panels
+- `.bg-grid-pattern` — Subtle CSS grid background overlay for depth
+- `.live-pulse-ring` — Expanding ring animation for LIVE indicator
+- `.typing-dot` — Staggered bounce animation for chat typing indicator
+- `.ticker-scroll` — Infinite horizontal scroll (pauses on hover)
+- `.progress-gradient-green/blue/purple` — Gradient progress bars with glow
+- `.vs-badge` — Gradient badge with glow for AI Battle
+- `.modal-overlay` — Backdrop blur overlay for modals
+- `.disagreement-badge` — Pulsing ring for disagreement indicator
+- `.neon-border-animated` — Animated gradient border using mask-composite
+- `.match-card-glow` — Enhanced hover with translateY + neon glow
+- `.tab-active-indicator` — Gradient underline for active tab
+- `.header-glow-line` — Animated 5-color gradient line
+- `.sparkline-container` — Mini chart overflow container
+
+### New Features Added:
+1. **Live Match Ticker** — Scrolling bar in header showing live match scores with odds, hover-to-pause
+2. **Toast Notification System** — `useToasts()` hook + ToastContainer component, auto-dismiss, success/error/info types
+3. **Match Detail Modal** — Click any match card for detailed view with odds, scores, tournament, source, AI predictions
+4. **Bet History Table** — Below match grid, shows recent 10 bets with color-coded profit/loss and status badges
+
+### Files Modified:
+| File | Lines Before | Lines After | Changes |
+|------|-------------|-------------|---------|
+| src/app/page.tsx | 1179 | 1538 | +359: Toast system, Match Detail Modal, Bet History, Live Ticker, dynamic chart data, Sources real data |
+| src/components/AiBattleTab.tsx | 463 | 968 | +505: fetchWithTimeout, retry logic, partial data display, VS badge, panel glow, disagreement animation |
+| src/components/BankrollTab.tsx | 1084 | 1084 | Modified: gradient progress bars |
+| src/app/globals.css | 219 | 407 | +188: 15 new CSS animation utilities |
+| src/app/api/chat/route.ts | 108 | 108 | Fixed: truncated string literals |
+
+### Build & Deploy:
+- Lint: `bun run lint` — 0 errors
+- Push: GitHub commit 9e1839f
+- Deploy: git pull → npm install → prisma generate → next build → pm2 restart
+- Server: http://2.26.122.152:8080 — online, all APIs returning real data
+- DATABASE_URL fix: must be `file:/var/www/tt-predict/db/custom.db` after every git pull
+
+---
+
+## CURRENT PROJECT STATUS ASSESSMENT
+
+### Architecture
+- **Framework**: Next.js 16 App Router + TypeScript
+- **State**: Zustand store (8 API integrations)
+- **DB**: Prisma ORM + SQLite (14 models)
+- **UI**: Tailwind CSS 4 + shadcn/ui + Framer Motion + Recharts
+- **Two AI Systems**: Classic (stats-based, blue) vs RAG+ (news+stats, purple)
+- **Production**: PM2 on VPS, Nginx proxy, port 8080
+
+### Current Server Data
+- 2897+ matches (auto-collected from BetBoom + Fonbet)
+- 24 Classic AI bets, 25+ RAG AI bets
+- 50 predictors, 90 players
+- Bankroll: Classic 3800₽ / RAG+ ~3900₽
+
+### Current Goals / Completed Modifications
+- ✅ All 10 API endpoints return real DB data
+- ✅ Two separate AI prediction systems (Classic + RAG+)
+- ✅ AI Battle comparison UI
+- ✅ Statistical fallback when LLM unavailable
+- ✅ Dynamic chart data from real DB
+- ✅ Live Match Ticker, Toast notifications, Match Detail Modal, Bet History Table
+- ✅ 15+ new CSS animation utilities
+- ✅ Gradient glassmorphism styling throughout
+
+### Unresolved Issues / Risks
+1. **LLM SDK unreachable from VPS** — z-ai-web-dev-sdk can't connect to AI proxy (172.25.136.193:8080 timeout). Statistical fallbacks work but AI predictions lack LLM reasoning.
+2. **AI Battle tab may still have loading issues** — The fetchWithTimeout fix was deployed but needs browser verification (browser environment lost X display during QA).
+3. **All Classic bets seeded as "lost"** — WinRate shows 0% because seeded data was all losses. Need real predictions to accumulate.
+4. **DATABASE_URL overwritten on git pull** — .env file is tracked in git with wrong path. Must fix manually after each pull, or add .env to .gitignore.
+5. **Standalone mode warning** — next.config.ts uses `output: "standalone"` but PM2 runs `npm start` (which uses `next start`). Works but shows warnings.
+6. **PM2 restart count at 168** — Accumulated from previous crash loops. Not harmful but should be reset.
+
+### Priority Recommendations for Next Phase
+1. **HIGH**: Fix DATABASE_URL persistence — Add .env to .gitignore, create .env.example template
+2. **HIGH**: Verify AI Battle tab loads correctly after the fetchWithTimeout fix (user should test in browser)
+3. **HIGH**: Implement real match data auto-prediction — Cron job to predict upcoming matches automatically
+4. **MEDIUM**: Add some winning bets to DB — Seed a mix of wins/losses for better demo experience
+5. **MEDIUM**: Mobile responsiveness pass — Current layout is desktop-first
+6. **MEDIUM**: PM2 ecosystem fix — Use `node .next/standalone/server.js` instead of `npm start`
+7. **LOW**: Real RAG pipeline — News/Twitter scraper for RAG+ AI (requires external API access)
