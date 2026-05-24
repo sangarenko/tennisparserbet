@@ -134,8 +134,8 @@ export function AiBattleTab({ matches }: AiBattleTabProps) {
 
       if (cBankRes.status === 'fulfilled' && cBankRes.value.id) setClassicBankroll(cBankRes.value)
       if (rBankRes.status === 'fulfilled' && rBankRes.value.id) setRagBankroll(rBankRes.value)
-      if (cBankRes.status === 'fulfilled' && Array.isArray(cBetsRes.value)) setClassicBets(cBetsRes.value)
-      if (rBankRes.status === 'fulfilled' && Array.isArray(rBetsRes.value)) setRagBets(rBetsRes.value)
+      if (cBetsRes.status === 'fulfilled' && Array.isArray(cBetsRes.value)) setClassicBets(cBetsRes.value)
+      if (rBetsRes.status === 'fulfilled' && Array.isArray(rBetsRes.value)) setRagBets(rBetsRes.value)
     } catch (err) {
       console.error('Failed to fetch battle data:', err)
     } finally {

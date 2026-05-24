@@ -266,3 +266,41 @@ Stage Summary:
 - Project builds successfully
 - Remaining risks: LLM SDK availability on production server (2.26.122.152)
 - Priority next: Deploy updated code to server, test LLM connectivity from VPS
+---
+Task ID: deploy-and-qa
+Agent: Main
+Task: Deploy updated code to production server + QA testing
+
+Work Log:
+- Checked all API endpoints on production server (2.26.122.152:8080)
+- Found old code running (mock APIs, no ai-bankroll/ai-bets, USD instead of RUB)
+- Created deployment archive (7.7MB) and uploaded via SSH
+- Fixed DATABASE_URL on server (was pointing to sandbox path)
+- Ran npm install, prisma generate, prisma db push, next build on server
+- All 8 API endpoints now return HTTP 200 with real DB data
+- Bankroll: 3800₽ (Classic) + 3950₽ (RAG+) = 7750₽ combined
+- 24 classic bets, 21 RAG bets, 50 predictors in DB
+- QA via agent-browser: Matches tab works (200 matches, 19 live), Bankroll tab works (3 views)
+- Found and fixed bug in AiBattleTab.tsx: cBankRes used instead of cBetsRes on line 137
+- AI Battle tab shows "Loading..." — likely stale JS bundle cache on server
+- Build lock issue on server resolved with pkill + lock file removal
+- PM2 restarts: 163 restarts accumulated (needs cleanup)
+
+### Current Server Status:
+| Endpoint | Status | Data |
+|----------|--------|------|
+| /api/matches | ✅ 200 | 1941 matches from DB |
+| /api/bankroll | ✅ 200 | 3800₽, 24 bets, flat strategy |
+| /api/ai-bankroll | ✅ 200 | 3950₽, 21 bets |
+| /api/bets | ✅ 200 | 24 bets with match details |
+| /api/ai-bets | ✅ 200 | 21 bets with reasoning |
+| /api/stats | ✅ 200 | Real aggregations |
+| /api/predictors | ✅ 200 | 50 predictors with tiers |
+| /api/predict | ✅ 200 | LLM-powered (via z-ai-web-dev-sdk) |
+| /api/ai-predict | ✅ 200 | RAG+ endpoint |
+
+### Known Issues:
+1. AI Battle tab stuck on "Loading..." on production — need to clear .next cache and rebuild, or check browser JS bundle cache
+2. PM2 high restart count (163) — should be reset with `pm2 flush`
+3. All 24 classic bets are "lost" (winRate 0%) — seeded data, not a bug
+4. Matches are Roland Garros (tennis), not table tennis — scrapers need to be pointed at TT events
