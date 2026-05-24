@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import ZAI from 'z-ai-web-dev-sdk'
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +19,9 @@ export async function POST(request: NextRequest) {
     }
 
     const odds = match.odds[0]
+    const odds1 = odds?.odds1 || 0
+    const odds2 = odds?.odds2 || 0
+
     const player1Stats = await db.player.findFirst({
       where: { name: { contains: match.player1.split(' ')[0] } }
     })
@@ -27,67 +29,67 @@ export async function POST(request: NextRequest) {
       where: { name: { contains: match.player2.split(' ')[0] } }
     })
 
-    const context = `You are an AI analyst that uses BOTH statistical data AND news/context analysis for predictions.
+    const p1wr = player1Stats ? player1Stats.winRate : 0.5
+    const p2wr = player2Stats ? player2Stats.winRate : 0.5
 
+    // Statistical prediction
+    const impliedP1 = odds1 > 0 ? (1 / odds1) : 0.5
+    const impliedP2 = odds2 > 0 ? (1 / odds2) : 0.5
+
+    let score1 = impliedP1 * 0.5 + p1wr * 0.3 + (player1Stats?.wins || 0) / Math.max((player1Stats?.wins || 0) + (player1Stats?.losses || 0), 1) * 0.2
+    let score2 = impliedP2 * 0.5 + p2wr * 0.3 + (player2Stats?.wins || 0) / Math.max((player2Stats?.wins || 0) + (player2Stats?.losses || 0), 1) * 0.2
+
+    if (match.status === 'live') {
+      const lead = (match.score1 - match.score2) / 5
+      score1 += lead * 0.1
+      score2 -= lead * 0.1
+    }
+
+    let predictedWinner = score1 >= score2 ? match.player1 : match.player2
+    let confidence = Math.min(0.9, Math.max(0.5, (score1 >= score2 ? score1 : score2) / (score1 + score2)))
+    let reasoning = `Statistical analysis: ${predictedWinner} favored based on odds (${odds1 || 'N/A'} vs ${odds2 || 'N/A'}) and form (${Math.round(p1wr * 100)}% vs ${Math.round(p2wr * 100)}% win rate).`
+    let newsDigest = 'No real-time news context available on this server.'
+    let keyFactors = ['odds analysis', 'player form', 'statistical model']
+
+    // Try LLM enhancement
+    try {
+      const ZAI = (await import('z-ai-web-dev-sdk')).default
+      const zai = await ZAI.create()
+      const context = `You are RAG+ AI analyst for table tennis predictions.
 Match: ${match.player1} vs ${match.player2}
 League: ${match.league || 'Unknown'}
-${odds ? `Odds: ${match.player1} @ ${odds.odds1} | ${match.player2} @ ${odds.odds2}` : 'No odds available'}
-${player1Stats ? `Player 1: Wins=${player1Stats.wins}, Losses=${player1Stats.losses}, WinRate=${Math.round(player1Stats.winRate * 100)}%` : ''}
-${player2Stats ? `Player 2: Wins=${player2Stats.wins}, Losses=${player2Stats.losses}, WinRate=${Math.round(player2Stats.winRate * 100)}%` : ''}
+Odds: ${match.player1} @ ${odds1} | ${match.player2} @ ${odds2}
+Player 1: WinRate=${Math.round(p1wr * 100)}%, Player 2: WinRate=${Math.round(p2wr * 100)}%
+Statistical suggestion: ${predictedWinner} at ${Math.round(confidence * 100)}%
 
-Simulate having access to recent news and social media sentiment. Consider:
-1. Recent form and momentum
-2. Possible injuries or fatigue
-3. Tournament importance and motivation
-4. Playing style matchups
-5. Historical performance in similar conditions
+Simulate news/social media context. Respond in JSON: {"predictedWinner": "name", "confidence": 0.0-1.0, "reasoning": "analysis", "newsDigest": "news summary", "keyFactors": ["f1","f2","f3"]}`
 
-Respond in JSON: {"predictedWinner": "name", "confidence": 0.0-1.0, "reasoning": "2-3 sentences", "newsDigest": "Summary of simulated news context", "keyFactors": ["factor1","factor2","factor3"]}`
+      const completion = await zai.chat.completions.create({
+        messages: [
+          { role: 'system', content: 'You are RAG+ AI analyst for table tennis. Combine statistics with contextual insights. Respond in valid JSON only.' },
+          { role: 'user', content: context }
+        ],
+        temperature: 0.4,
+      })
 
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'You are RAG+ AI analyst for table tennis. Combine statistical analysis with contextual/news insights. Always respond in valid JSON.' },
-        { role: 'user', content: context }
-      ],
-      temperature: 0.4,
-    })
-
-    let aiResponse: {
-      predictedWinner: string
-      confidence: number
-      reasoning: string
-      newsDigest: string
-      keyFactors: string[]
-    }
-    try {
       const content = completion.choices[0]?.message?.content || ''
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
-        aiResponse = JSON.parse(jsonMatch[0])
-      } else {
-        aiResponse = {
-          predictedWinner: match.player1,
-          confidence: 0.55,
-          reasoning: content.substring(0, 300),
-          newsDigest: 'No additional context',
-          keyFactors: ['stats', 'odds']
+        const aiResp = JSON.parse(jsonMatch[0])
+        if (aiResp.predictedWinner) {
+          predictedWinner = aiResp.predictedWinner
+          confidence = Math.min(Math.max(aiResp.confidence || 0.5, 0.1), 0.95)
+          reasoning = aiResp.reasoning || reasoning
+          newsDigest = aiResp.newsDigest || newsDigest
+          keyFactors = aiResp.keyFactors || keyFactors
         }
       }
-    } catch {
-      aiResponse = {
-        predictedWinner: match.player1,
-        confidence: 0.55,
-        reasoning: 'Analysis unavailable',
-        newsDigest: '',
-        keyFactors: []
-      }
+    } catch (llmError) {
+      console.log('RAG+ LLM unavailable, using statistical prediction')
     }
 
     // Save as AiBet
-    const betOdds = aiResponse.predictedWinner === match.player1
-      ? (odds?.odds1 || 0)
-      : (odds?.odds2 || 0)
+    const betOdds = predictedWinner === match.player1 ? odds1 : odds2
     const stake = 50
     const potentialWin = betOdds > 0 ? Math.round(stake * betOdds) : 0
 
@@ -96,17 +98,17 @@ Respond in JSON: {"predictedWinner": "name", "confidence": 0.0-1.0, "reasoning":
         matchId,
         player1: match.player1,
         player2: match.player2,
-        predictedWinner: aiResponse.predictedWinner || match.player1,
-        confidence: Math.min(Math.max(aiResponse.confidence || 0.5, 0), 1),
-        valueRating: Math.round((aiResponse.confidence || 0.5) * 10),
+        predictedWinner,
+        confidence,
+        valueRating: Math.round(confidence * 10),
         odds: betOdds,
         stake,
         potentialWin,
         profit: 0,
         status: 'pending',
-        reasoning: aiResponse.reasoning || '',
-        newsDigest: aiResponse.newsDigest || '',
-        keyFactors: JSON.stringify(aiResponse.keyFactors || []),
+        reasoning,
+        newsDigest,
+        keyFactors: JSON.stringify(keyFactors),
       }
     })
 
@@ -130,7 +132,7 @@ Respond in JSON: {"predictedWinner": "name", "confidence": 0.0-1.0, "reasoning":
       confidence: aiBet.confidence,
       reasoning: aiBet.reasoning,
       newsDigest: aiBet.newsDigest,
-      keyFactors: aiResponse.keyFactors || [],
+      keyFactors,
       valueRating: aiBet.valueRating,
       odds: aiBet.odds,
       stake: aiBet.stake,

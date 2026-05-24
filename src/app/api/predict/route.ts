@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import ZAI from 'z-ai-web-dev-sdk'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,21 +20,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Get player stats and history
-    const player1History = await db.playerHistory.findMany({
-      where: { opponent: match.player2 },
-      take: 10,
-      orderBy: { date: 'desc' }
-    })
-    const player2History = await db.playerHistory.findMany({
-      where: { opponent: match.player1 },
-      take: 10,
-      orderBy: { date: 'desc' }
-    })
-
     let player1Stats = await db.player.findFirst({ where: { name: match.player1 } })
     let player2Stats = await db.player.findFirst({ where: { name: match.player2 } })
-
-    // Fallback: search by first name / contains
     if (!player1Stats) {
       player1Stats = await db.player.findFirst({ where: { name: { contains: match.player1.split(' ')[0] } } })
     }
@@ -43,102 +29,130 @@ export async function POST(request: NextRequest) {
       player2Stats = await db.player.findFirst({ where: { name: { contains: match.player2.split(' ')[0] } } })
     }
 
-    // 3. Get recent predictions for this match's players
-    const recentPredictions = await db.prediction.findMany({
-      where: {
-        match: {
-          OR: [
-            { player1: match.player1 },
-            { player2: match.player1 },
-            { player1: match.player2 },
-            { player2: match.player2 }
-          ]
-        }
-      },
-      take: 10,
-      orderBy: { createdAt: 'desc' }
-    })
-
-    // 4. Build context for LLM
     const odds = match.odds[0]
-    const context = `Table Tennis Match Prediction Request:
-Match: ${match.player1} vs ${match.player2}
-League/Tournament: ${match.league || 'Unknown'}
-Status: ${match.status}
-${match.score1 !== 0 || match.score2 !== 0 ? `Current Score: ${match.score1}-${match.score2}` : ''}
-${odds ? `Odds: ${match.player1} @ ${odds.odds1} | ${match.player2} @ ${odds.odds2}${odds.totalOver ? ` | Total Over: ${odds.totalOver}` : ''}` : ''}
-${player1Stats ? `Player 1 (${match.player1}) Stats: Wins=${player1Stats.wins}, Losses=${player1Stats.losses}, WinRate=${Math.round(player1Stats.winRate * 100)}%${player1Stats.country ? ', Country=' + player1Stats.country : ''}` : 'No stats for Player 1'}
-${player2Stats ? `Player 2 (${match.player2}) Stats: Wins=${player2Stats.wins}, Losses=${player2Stats.losses}, WinRate=${Math.round(player2Stats.winRate * 100)}%${player2Stats.country ? ', Country=' + player2Stats.country : ''}` : 'No stats for Player 2'}
-${player1History.length > 0 ? `Head-to-Head (Player 1 vs Player 2): ${player1History.map(h => h.result + ' ' + (h.score || '')).join(', ')}` : 'No H2H data'}
-${recentPredictions.length > 0 ? `Previous AI predictions accuracy for these players: ${recentPredictions.filter(p => p.isCorrect).length}/${recentPredictions.length} correct` : ''}
+    const odds1 = odds?.odds1 || 0
+    const odds2 = odds?.odds2 || 0
 
-Analyze this match and provide your prediction. Respond in JSON format:
-{"predictedWinner": "Player Name", "confidence": 0.0-1.0, "reasoning": "Detailed analysis in 2-3 sentences", "keyFactors": ["factor1", "factor2", "factor3"]}`
+    // 3. Build statistical prediction (always works, no LLM needed)
+    let predictedWinner = match.player1
+    let confidence = 0.55
+    let reasoning = ''
+    let keyFactors: string[] = []
 
-    // 5. Call LLM
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'You are an expert table tennis analyst and betting advisor. You analyze player statistics, head-to-head records, odds, and form to make predictions. Always respond in valid JSON format. Be concise but insightful.' },
-        { role: 'user', content: context }
-      ],
-      temperature: 0.3,
-    })
+    // Statistical analysis
+    const p1wr = player1Stats ? player1Stats.winRate : 0.5
+    const p2wr = player2Stats ? player2Stats.winRate : 0.5
+    const p1wins = player1Stats?.wins || 0
+    const p2wins = player2Stats?.wins || 0
+    const p1losses = player1Stats?.losses || 0
+    const p2losses = player2Stats?.losses || 0
 
-    // 6. Parse response
-    let aiResponse: {
-      predictedWinner: string
-      confidence: number
-      reasoning: string
-      keyFactors: string[]
+    // Calculate implied probability from odds (lower odds = higher probability)
+    const impliedP1 = odds1 > 0 ? (1 / odds1) : 0.5
+    const impliedP2 = odds2 > 0 ? (1 / odds2) : 0.5
+
+    // Combined score: 40% odds + 30% win rate + 20% total wins + 10% current score
+    let score1 = impliedP1 * 0.4 + p1wr * 0.3 + (p1wins / Math.max(p1wins + p2wins, 1)) * 0.2
+    let score2 = impliedP2 * 0.4 + p2wr * 0.3 + (p2wins / Math.max(p1wins + p2wins, 1)) * 0.2
+
+    // Factor in current score if match is live
+    if (match.status === 'live' && (match.score1 > 0 || match.score2 > 0)) {
+      const scoreLead = (match.score1 - match.score2) / 5
+      score1 += scoreLead * 0.1
+      score2 -= scoreLead * 0.1
+      keyFactors.push(`live score ${match.score1}-${match.score2}`)
     }
+
+    if (score1 >= score2) {
+      predictedWinner = match.player1
+      confidence = Math.min(0.9, Math.max(0.5, score1 / (score1 + score2)))
+    } else {
+      predictedWinner = match.player2
+      confidence = Math.min(0.9, Math.max(0.5, score2 / (score1 + score2)))
+    }
+
+    // Build reasoning
+    const reasons: string[] = []
+    if (odds1 > 0 && odds2 > 0) {
+      reasons.push(`Odds favor ${predictedWinner} (${predictedWinner === match.player1 ? odds1 : odds2} vs ${predictedWinner === match.player1 ? odds2 : odds1})`)
+      keyFactors.push('odds analysis')
+    }
+    if (player1Stats && player1Stats.wins > 0) {
+      reasons.push(`${match.player1}: ${p1wins}W/${p1losses}L (${Math.round(p1wr * 100)}%)`)
+      keyFactors.push('player form')
+    }
+    if (player2Stats && player2Stats.wins > 0) {
+      reasons.push(`${match.player2}: ${p2wins}W/${p2losses}L (${Math.round(p2wr * 100)}%)`)
+    }
+    if (match.status === 'live') {
+      reasons.push(`Match is live (${match.score1}-${match.score2})`)
+    }
+    reasoning = reasons.join('. ') + '.'
+
+    // 4. Try LLM enhancement (optional, may fail on some servers)
     try {
+      const ZAI = (await import('z-ai-web-dev-sdk')).default
+      const zai = await ZAI.create()
+      const context = `Table Tennis Match Prediction Request:
+Match: ${match.player1} vs ${match.player2}
+League: ${match.league || 'Unknown'}
+${odds ? `Odds: ${match.player1} @ ${odds1} | ${match.player2} @ ${odds2}` : 'No odds available'}
+${player1Stats ? `Player 1 Stats: Wins=${p1wins}, Losses=${p1losses}, WinRate=${Math.round(p1wr * 100)}%` : 'No stats for Player 1'}
+${player2Stats ? `Player 2 Stats: Wins=${p2wins}, Losses=${p2losses}, WinRate=${Math.round(p2wr * 100)}%` : 'No stats for Player 2'}
+
+Statistical analysis suggests: ${predictedWinner} (confidence: ${Math.round(confidence * 100)}%)
+Reasoning: ${reasoning}
+
+Do you agree or disagree with this analysis? Respond in JSON: {"predictedWinner": "name", "confidence": 0.0-1.0, "reasoning": "brief analysis", "keyFactors": ["f1","f2","f3"]}`
+
+      const completion = await zai.chat.completions.create({
+        messages: [
+          { role: 'system', content: 'You are an expert table tennis analyst. Analyze the match data and statistical prediction. Respond in valid JSON only.' },
+          { role: 'user', content: context }
+        ],
+        temperature: 0.3,
+      })
+
       const content = completion.choices[0]?.message?.content || ''
-      // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
-        aiResponse = JSON.parse(jsonMatch[0])
-      } else {
-        // Fallback: use the text as reasoning with a reasonable prediction
-        aiResponse = {
-          predictedWinner: (odds && odds.odds1 < odds.odds2) ? match.player1 : match.player2,
-          confidence: 0.6,
-          reasoning: content.substring(0, 300),
-          keyFactors: ['odds analysis', 'AI assessment']
+        const aiResp = JSON.parse(jsonMatch[0])
+        if (aiResp.predictedWinner && aiResp.confidence) {
+          predictedWinner = aiResp.predictedWinner
+          confidence = Math.min(Math.max(aiResp.confidence, 0.1), 0.95)
+          reasoning = aiResp.reasoning || reasoning
+          keyFactors = aiResp.keyFactors || keyFactors
         }
       }
-    } catch {
-      aiResponse = {
-        predictedWinner: match.player1,
-        confidence: 0.55,
-        reasoning: 'AI analysis unavailable - default prediction based on available data.',
-        keyFactors: ['default']
-      }
+    } catch (llmError) {
+      // LLM unavailable - using statistical prediction (this is expected on some servers)
+      console.log('LLM unavailable, using statistical prediction')
     }
 
-    // 7. Save prediction to DB
+    // 5. Save prediction to DB
     const prediction = await db.prediction.create({
       data: {
         matchId,
-        predictedWinner: aiResponse.predictedWinner || match.player1,
-        confidence: Math.min(Math.max(aiResponse.confidence || 0.5, 0), 1),
+        predictedWinner,
+        confidence: Math.min(Math.max(confidence, 0), 1),
         aiModel: 'AI Classic v1',
-        analysis: aiResponse.reasoning || '',
+        analysis: reasoning,
       }
     })
 
-    // 8. Return response
-    const predictions = [{
-      id: prediction.id,
-      predictedWinner: prediction.predictedWinner,
-      confidence: prediction.confidence,
-      reasoning: prediction.analysis,
-      predictor: 'AI Classic v1',
-      timestamp: prediction.createdAt.toISOString(),
-      keyFactors: aiResponse.keyFactors || []
-    }]
-
-    return NextResponse.json({ matchId, predictions })
+    // 6. Return response
+    return NextResponse.json({
+      matchId,
+      predictions: [{
+        id: prediction.id,
+        predictedWinner: prediction.predictedWinner,
+        confidence: prediction.confidence,
+        reasoning: prediction.analysis,
+        predictor: 'AI Classic v1',
+        timestamp: prediction.createdAt.toISOString(),
+        keyFactors
+      }]
+    })
 
   } catch (error) {
     console.error('Prediction error:', error)
