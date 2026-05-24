@@ -7,89 +7,232 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model Match {
   id           String   @id @default(cuid())
+  externalId   String   @default("")
+  source       String   @default("")
+  sport        String   @default("table_tennis")
+  league       String   @default("")
   player1      String
   player2      String
-  tournament   String?
   startTime    DateTime
   status       String   @default("upcoming")
-  odds1        Float?
-  odds2        Float?
-  source       String?
   score1       Int      @default(0)
   score2       Int      @default(0)
+  winner       String?
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime
+  rawJson      String   @default("{}")
+
+  bets         Bet[]
+  odds         BookmakerOdds[]
+  predictions  Prediction[]
+  valueBets    ValueBet[]
+  aiBets       AiBet[]
+  playerHistory PlayerHistory[]
 }
 
 model Bet {
-  id             String   @id @default(cuid())
-  matchId        String
+  id              String    @id @default(cuid())
+  matchId         String
   predictedWinner String
-  odds           Float?
-  stake          Float    @default(0)
-  status         String   @default("pending")
-  result         String?
-  profit         Float    @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  odds            Float     @default(0)
+  stake           Float     @default(0)
+  potentialWin    Float     @default(0)
+  result          String?
+  payout          Float     @default(0)
+  isWin           Boolean?
+  createdAt       DateTime  @default(now())
+  settledAt       DateTime?
+
+  match           Match     @relation(fields: [matchId], references: [id])
 }
 
 model Player {
   id        String   @id @default(cuid())
   name      String
   country   String?
-  rank      Int      @default(0)
+  rank      Int?
   wins      Int      @default(0)
   losses    Int      @default(0)
-  rating    Float    @default(0)
+  winRate   Float    @default(0)
+  avgOdds   Float    @default(0)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime
 }
 
 model Predictor {
-  id               String   @id @default(cuid())
-  name             String
-  platform         String?
-  tier             String   @default("C")
-  accuracy         Float    @default(0)
-  totalPredictions Int      @default(0)
-  verified         Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id               String    @id @default(cuid())
+  name             String    @unique
+  channel          String    @default("")
+  platform         String    @default("telegram")
+  bio              String    @default("")
+  specialization   String    @default("")
+  avatarEmoji      String    @default("🔮")
+  followers        Int       @default(0)
+  totalTips        Int       @default(0)
+  correctTips      Int       @default(0)
+  winRate          Float     @default(0)
+  avgConfidence    Float     @default(0)
+  avgOdds          Float     @default(0)
+  currentStreak    Int       @default(0)
+  bestStreak       Int       @default(0)
+  monthlyData      String    @default("{}")
+  tags             String    @default("")
+  lastActive       DateTime?
+  verified         Boolean   @default(false)
+  qualityScore     Float     @default(0)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime
 }
 
 model CollectionLog {
   id              String   @id @default(cuid())
   source          String
-  matchesCollected Int     @default(0)
-  status          String   @default("pending")
+  status          String   @default("success")
+  matchesFound    Int      @default(0)
+  matchesNew      Int      @default(0)
+  matchesUpdated  Int      @default(0)
+  error           String?
+  duration        Int      @default(0)
   createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+}
+
+model BookmakerOdds {
+  id         String   @id @default(cuid())
+  matchId    String
+  source     String   @default("")
+  odds1      Float
+  odds2      Float
+  totalOver  Float?
+  totalUnder Float?
+  handicap1  Float?
+  handicap2  Float?
+  updatedAt  DateTime
+
+  match      Match    @relation(fields: [matchId], references: [id])
+}
+
+model Prediction {
+  id              String   @id @default(cuid())
+  matchId         String
+  predictedWinner String
+  confidence      Float    @default(0.5)
+  aiModel         String   @default("gpt-4")
+  analysis        String   @default("")
+  isCorrect       Boolean?
+  createdAt       DateTime @default(now())
+
+  match           Match    @relation(fields: [matchId], references: [id])
+}
+
+model ValueBet {
+  id               String    @id @default(cuid())
+  matchId          String
+  side             String    @default("")
+  aiProbability    Float
+  bookmakerOdds    Float
+  bookmakerImplied Float
+  fairOdds         Float
+  edge             Float
+  ev               Float
+  kellyFraction    Float
+  confidence       Float
+  reasoning        String    @default("")
+  newsDigest       String    @default("")
+  playerStats      String    @default("{}")
+  aiModel          String    @default("gpt-4o-mini")
+  source           String    @default("")
+  status           String    @default("active")
+  resolvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  match            Match     @relation(fields: [matchId], references: [id])
 }
 
 model Bankroll {
-  id        String   @id @default(cuid())
-  total     Float    @default(1000)
-  currency  String   @default("USD")
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  initialAmount   Float    @default(10000)
+  currentAmount   Float    @default(10000)
+  strategy        String   @default("flat")
+  riskLevel       String   @default("medium")
+  flatAmount      Float    @default(100)
+  percentage      Float    @default(3)
+  kellyFraction   Float    @default(0.25)
+  stopLoss        Float    @default(0)
+  takeProfit      Float    @default(0)
+  peakAmount      Float    @default(10000)
+  maxDrawdown     Float    @default(0)
+  totalDeposits   Float    @default(0)
+  totalWithdrawals Float   @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+}
+
+model BankrollEntry {
+  id          String   @id @default(cuid())
+  bankrollId  String
+  type        String
+  amount      Float
+  balance     Float
+  description String   @default("")
+  betId       String?
+  matchId     String?
+  createdAt   DateTime @default(now())
+}
+
+/// AI v2 (RAG) Bet — separate tracking for the new AI model
+model AiBet {
+  id              String    @id @default(cuid())
+  matchId         String
+  player1         String
+  player2         String
+  predictedWinner String
+  confidence      Float     @default(0.5)
+  valueRating     Int       @default(5)
+  odds            Float     @default(0)
+  stake           Float     @default(50)
+  potentialWin    Float     @default(0)
+  profit          Float     @default(0)
+  status          String    @default("pending") // pending, won, lost, void
+  reasoning       String    @default("")
+  newsDigest      String    @default("")
+  keyFactors      String    @default("[]")
+  settledAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  match           Match     @relation(fields: [matchId], references: [id])
+}
+
+/// AI v2 (RAG) Bankroll — separate from the classic AI bankroll
+model AiBankroll {
+  id              String   @id @default(cuid())
+  label           String   @default("AI v2 RAG")
+  initialAmount   Float    @default(5000)
+  currentAmount   Float    @default(5000)
+  peakAmount      Float    @default(5000)
+  maxDrawdown     Float    @default(0)
+  totalBets       Int      @default(0)
+  wonBets         Int      @default(0)
+  lostBets        Int      @default(0)
+  pendingBets     Int      @default(0)
+  flatAmount      Float    @default(50)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+}
+
+model PlayerHistory {
+  id          String   @id @default(cuid())
+  playerId    String
+  matchId     String?
+  opponent    String
+  result      String
+  score       String?
+  date        DateTime
+  tournament  String?
+  odds        Float?
+  createdAt   DateTime @default(now())
+
+  match       Match?   @relation(fields: [matchId], references: [id])
 }
