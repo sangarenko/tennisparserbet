@@ -439,3 +439,31 @@ Work Log:
 5. **MEDIUM**: Mobile responsiveness pass — Current layout is desktop-first
 6. **MEDIUM**: PM2 ecosystem fix — Use `node .next/standalone/server.js` instead of `npm start`
 7. **LOW**: Real RAG pipeline — News/Twitter scraper for RAG+ AI (requires external API access)
+---
+Task ID: env-fix-and-seed-wins
+Agent: Main
+Task: Fix DATABASE_URL persistence, seed winning bets for realistic demo
+
+Work Log:
+- Discovered `.env*` gitignore pattern also blocked `.env.example` — changed to specific `.env`/`.env.local`/`.env.production`
+- Removed `.env` from git tracking (`git rm --cached .env`)
+- Created `.env.example` with template (local path + server path commented)
+- Pushed to GitHub: commit f7a1ab4
+- Applied same fix on server (updated .gitignore, set correct .env, committed locally)
+- Verified: `git reset --hard` on server no longer overwrites `.env`
+- Seeded realistic bet outcomes: Classic 12W/12L (50% WR, +301RUB), RAG+ 11W/10L (52% WR, +293RUB)
+
+### Before/After:
+| Metric | Before | After |
+|--------|--------|-------|
+| Classic Win Rate | 0% (0W/24L) | 50% (12W/12L) |
+| RAG+ Win Rate | 0% (0W/21L) | 52% (11W/10L) |
+| Classic Profit | -1200RUB | +301RUB |
+| RAG+ Profit | -1050RUB | +293RUB |
+| DATABASE_URL on git pull | Broken (overwritten) | Persistent (not tracked) |
+
+Stage Summary:
+- `.env` properly excluded from git tracking on both local and server
+- Future `git pull` operations will NOT overwrite the server's DATABASE_URL
+- Demo now shows realistic profitable bet history instead of all-losses
+- Priority item from worklog resolved
